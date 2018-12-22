@@ -1,0 +1,44 @@
+Classes:
+
+1. Shipment:
+In total there should be several tens of thousands of shipments, to be read from the csv file.
++ Variables:
+	- TR Gross Weight (KG): Gross weight (in kg)
+	- Nb of Ship Units: Number of shipped units
+	- TR Gross Volume (M3): Gross volume of transportation request
+
+	- OriginCluster
+	- DestinationCluster
+	- OriginLocation
+	- DestinationLocation
+
+	For Q6: (use the full, not preprocessed data)
+	- Distance: Distance between origin and destination (in km)
+	- ClusterDistance: Distance between respective clusters (in km)
+	- ShippingDuration: PUDate - TR Creation Date/Time
+
+2. ShipmentMatrix:
+Basically an array of shipment; represents the entire dataset
+Methods: Evaluate the current clustering here
+
+3. OriginCluster:
+	- Cluster number
+	- Cluster latitude
+	- Luster longitude
+
+3. DestinationCluster:
+	- Cluster number
+	- Cluster latitude
+	- Luster longitude
+
+4. OriginLocation:
+	- Longtitude
+	- Latitude
+	- Country
+	- City
+
+5. DestinationLocation:
+	- Longtitude
+	- Latitude
+	- Country
+	- City
