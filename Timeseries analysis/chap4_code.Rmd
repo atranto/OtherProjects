@@ -1,0 +1,138 @@
+---
+title: "Chap 4: ARMA processes"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Autoregressive Processes
+ 
+## Explosion
+Let us investigate whether the AR(3) process
+
+\[
+X_k = -3 \, X_{k-1} - 2 \, X_{k-2} - X_{k-3} + W_k
+\]
+
+is explosive or not. We assume that the white noise process has unit variance. To do so, it suffices to check whether the characteritic polynomial $\Psi(x) = x^3+2 \, x^2 + 3 \, x + 1$ has any root inside the unit circle.
+
+```{r}
+library(shape)
+plot( polyroot(c(1,2,3,1)), pch=20, col="red", xlim=c(-3,2), ylim=c(-2,2) )
+plotcircle(r=1, mid=c(0,0), lwd=3)
+```
+
+There are roots inside the unit circle hence the process is explosive. To witness this behavior, let us simulate such an AR(3) process. Since this is an explosive AR process, many of the usual commands for automatically simulating such processes in R do not work well. Let us do it by hand, this is instructive.
+
+```{r}
+x=c(0,0,0,0) # the vector "x" contains 4 consecutive 
+             # values of the time series
+             # x = (X_k, X_{k-1}, X_{k-2}, X_{k-3})
+ts_length = 15
+AR_ts = rep(0, ts_length)
+AR_trajectory = rep(0, ts_length)
+for(k in 1:ts_length){
+  #let us update X
+  x_new = c(0,0,0,0)
+  x_new[2:4] = x[1:3]
+  x_new[1] = -3*x[2]-2*x[3]-x[4] + rnorm(1)
+  AR_trajectory[k] = x_new[1]
+  x = x_new
+}
+plot(AR_trajectory, type="b", lwd=3)
+```
+
+## Autocorrelation
+Let us see how R can be used to compute the ACF of an AR process. For an AR process, one can use the command \verb|ARMAacf| to compute the ACF of AR process (through the use of the Yule-Walker equations); for example, let us investigate the AR(2) process
+
+\[
+X_{k} = \frac56 \, X_{k-1} - \frac16 \, X_{k-2} + W_k
+\]
+
+```{r}
+autocor_coeff_exact = ARMAacf( ar=c(5/6,-1/6), lag.max=20)
+plot(autocor_coeff_exact, type="h", lwd=3, xlab="lag", 
+     ylab="Autocorrelation",
+     main="AR(2):: ACF")
+```
+
+Now, let us simulate the AR(2) process for different lengths and see how the empirical ACF approximates the exact ACF.
+
+```{r}
+AR2 = arima.sim(n=1000, list(ar=c(5/6,-1/6)), sd=1)
+plot(AR2[1:500], lwd=3, type="l", main="AR(2) Trajectory")
+
+acf(AR2[1:50], lag.max=20, lwd=3, main="AR(2):: ACF (Theory v.s. Empirical estim)= 50")
+points(0.3 + 0:20, autocor_coeff_exact, type="h", lwd=3, 
+       xlab="lag", ylab="Autocorrelation",
+       main="AR(2):: ACF", col="red")
+
+acf(AR2, lag.max=20, lwd=3, main="AR(2):: ACF (Theory v.s. Empirical estim)= 1000")
+points(0.3 + 0:20, autocor_coeff_exact, type="h", lwd=3, 
+       xlab="lag", col="red")
+```
+
+
+
+
+# Moving averages
+ 
+Let us see how R can be used to compute the ACF of an MA process. For an AR process, one can use the command \verb|ARMAacf| to compute the ACF of AR process (through the use of the Yule-Walker equations); for example, let us investigate the AR(2) process
+
+\[
+X_{k} = W_k + 0.3 \, W_{k-1} - W_{k-2}
+\]
+
+```{r}
+autocor_coeff_exact = ARMAacf( ma=c(0.3, -1), lag.max=20)
+plot(autocor_coeff_exact, type="h", lwd=3, xlab="lag", 
+     ylab="Autocorrelation",
+     main="MA(2):: ACF")
+```
+
+Now, let us simulate the AR(2) process for different lengths and see how the empirical ACF approximates the exact ACF.
+
+```{r}
+MA2 = arima.sim(n=1000, list(ma=c(0.3, -1)), sd=1)
+plot(MA2[1:500], lwd=3, type="l", main="MA(2) Trajectory")
+
+acf(MA2[1:50], lag.max=20, lwd=3, main="MA(2):: ACF (Theory v.s. Empirical estim)= 50")
+points(0.3 + 0:20, autocor_coeff_exact, type="h", lwd=3, 
+       xlab="lag", ylab="Autocorrelation",
+       main="AR(2):: ACF", col="red")
+
+acf(MA2, lag.max=20, lwd=3, main="MA(2):: ACF (Theory v.s. Empirical estim)= 1000")
+points(0.3 + 0:20, autocor_coeff_exact, type="h", lwd=3, 
+       xlab="lag", col="red")
+```
+
+For an MA model, it is generally quite easy to determine the value of $q$ if enough data is available.
+
+```{r}
+MA_example = arima.sim(n=1000, list(ma=c(0.9, -0.7,3)), sd=1)
+acf(MA_example, lag.max=20, lwd=3, main="MA(?): empirical ACF")
+```
+
+
+
+# Partial Autocorrelation
+
+The PACF of an AR(p) process is zero for lag $k \geq p+1$.
+
+```{r}
+AR2 = arima.sim(n=1000, list(ar=c(5/6,-1/6)), sd=1)
+pacf(AR2, lag.max=20, lwd=3, main="AR(2):: empirical PACF")
+```
+
+On the other hand, in general the PACF of an MA(q) process does not exactly equal to zero for any lag $k$. Nevertheless, it converges exponentially fast to zero.
+
+```{r}
+MA2 = arima.sim(n=1000, list(ma=c(1, -0.5)), sd=1)
+pacf(MA2, lag.max=20, lwd=3, main="MA(2):: empirical PAC")
+```
+
+
+

@@ -1,0 +1,166 @@
+---
+title: "Chap 5: Extending AR and MA processes"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Installation of Keras
+```{r, eval=FALSE}
+# INSTALL KERAS with TENSORFLOW BACKEND for CPU
+install.packages("keras")
+library(keras)
+install_keras()
+```
+
+
+# Basic regression example
+```{r}
+#create a basic dataset
+n_samples = 1024
+x_train_list = runif(min=-3, max=3, n=n_samples)
+y_train_list = sin(3*x_train_list) + rnorm(mean=0, sd = 0.2, n_samples)
+
+plot(x_train_list, y_train_list, pch=20)
+```
+
+```{r}
+# keras needs array (not list) as inputs
+# in general, for regression problems, Keras needs as input
+# arrays with shape (nb_of_example, dimension_of_covariates)
+
+# in our case, the dimension of covariate is dim=1
+dim = 1
+x_train = array(x_train_list, dim=c(n_samples, dim))
+y_train = array(y_train_list, dim=c(n_samples, dim))
+```
+
+
+Let us now create a validation set i.e. a set of data that we wil not use during the training process.
+```{r}
+n_valid = 500
+x_valid_list = runif(min=-5, max=5, n_valid)
+x_valid = array(x_valid_list, dim=c(n_valid,1))
+y_valid <- sin(3*x_valid_list) + rnorm(mean=0, sd = 0.2, n_valid)
+```
+
+
+# Very basic linear model
+```{r}
+library(keras)
+
+#let's define a model
+model <- keras_model_sequential() 
+model %>% layer_dense(units = 1, input_shape = c(1))
+
+#let us look at the model
+summary(model)
+
+#let's compile the model
+model %>% compile(
+  loss = "MSE",
+  optimizer = optimizer_adam(),
+  metrics = c("MSE")
+)
+
+#let's train the model!
+history <- model %>% fit(
+  x_train, y_train, 
+  epochs = 100, batch_size = 128, 
+  validation_data = list(x_valid, y_valid),
+  verbose = FALSE
+)
+
+plot(history)
+```
+
+Let us visualize the results now!
+
+```{r}
+prediction = model %>% predict(x_valid)
+plot(x_train_list, y_train_list, xlim = c(-5,5), ylim=c(-4,4), pch=20)
+points(x_valid_list, prediction, col="red")
+```
+
+
+Let us now try a slightly more complicated model. We will also use a slightly different manner to design the network -- but we could have used the same approach as the one before.
+```{r}
+# the inpute as dimension 1
+inputs <- layer_input(shape = c(1))
+
+# the output is computed as follows
+output <-inputs %>% 
+  layer_dense(units = 10, activation = "relu") %>% 
+  layer_dense(units = 10, activation = "relu") %>%
+  layer_dense(units = 1) 
+
+model <- keras_model(inputs = inputs, outputs = output)
+
+#let's compile the model
+model %>% compile(
+  loss = "MSE",
+  optimizer = optimizer_adam(),
+  metrics = c("MSE")
+)
+
+#let's train the model!
+history <- model %>% fit(
+  x_train, y_train, 
+  epochs = 100, batch_size = 32, 
+  validation_data = list(x_valid, y_valid)
+)
+
+plot(history)
+```
+
+Let us visualize the results now!
+
+```{r}
+prediction = model %>% predict(x_valid)
+plot(x_train_list, y_train_list, xlim = c(-5,5), ylim=c(-4,4), pch=20)
+points(x_valid_list, prediction, col="red")
+```
+
+
+it is very easy to define custom losses!
+```{r}
+# the inpute as dimension 1
+inputs <- layer_input(shape = c(1))
+
+# the output is computed as follows
+output <-inputs %>% 
+  layer_dense(units = 10, activation = "relu") %>% 
+  layer_dense(units = 10, activation = "relu") %>%
+  layer_dense(units = 1) 
+
+model <- keras_model(inputs = inputs, outputs = output)
+
+# let us minimize difference to the power 4
+my_loss <- function(y_true, y_pred){
+  K <- backend()  # K
+  loss <- K$mean( K$pow(y_true - y_pred, 4)) 
+  return(loss)
+}
+
+
+#let's compile the model
+model %>% compile(
+  loss = my_loss,
+  optimizer = optimizer_adam(),
+  metrics = c("MSE")
+)
+
+#let's train the model!
+history <- model %>% fit(
+  x_train, y_train, 
+  epochs = 100, batch_size = 32, 
+  validation_data = list(x_valid, y_valid),
+  verbose = FALSE
+)
+
+plot(history)
+```
+

@@ -1,0 +1,196 @@
+---
+title: "Chap 5: Extending AR and MA processes"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Fitting an ARMA(p,q)
+
+Let us start by generating artificial data.
+
+```{r}
+#generate and plot an ARMA(p=1, q=2)
+nsample=100
+y_data = arima.sim(n=nsample, model=list(ar=c(-0.7), ma=c(-1,0.25)), sd=1)
+plot(y_data, main="ARMA(p=1,p=2)", lwd=3)
+```
+
+Let us display ACF and PACF
+
+```{r}
+par(mfrow=c(2,1))
+acf(y_data, lwd=3, main="ACF")
+pacf(y_data, lwd=3, main="PACF")
+```
+
+Finally, let us fit an ARMA(p=1, q=2) to the data and see if one can recover an approximation of the true coefficients.
+
+```{r}
+#let us fit an ARMA(p=1, q=2) to these data
+suppressMessages(library(fpp))
+fitted_model = Arima(y_data, order=c(1,0,2))
+
+# display the fitted model
+summary(fitted_model)
+
+# forecast
+plot( forecast(fitted_model, h=30) )
+```
+
+\section{ARIMA}
+
+```{r}
+#setwd("/Users/alexthiery/Dropbox/teaching/2016_ST3233/dataset")
+setwd("/home/alekthiery/Dropbox/teaching/ST3233_2018/dataset/")
+load("tsa3.rda")
+
+par(mfrow=c(1,1))
+plot(gtemp, lwd=3, main="Global Temperature")
+plot(diff(gtemp), lwd=3, main="Diff(Global Temperature)")
+
+par(mfrow=c(2,1))
+acf(diff(gtemp), lwd = 3, main="ACF of diff(gtemp)")
+pacf(diff(gtemp), lwd = 3, main="PACF of diff(gtemp)")
+
+library(forecast)
+fit_arima_3_1_0 = Arima(gtemp, order = c(3,1,0), include.drift=TRUE)
+fit_arima_0_1_1 = Arima(gtemp, order = c(0,1,1), include.drift=TRUE)
+fit_arima_1_1_1 = Arima(gtemp, order = c(1,1,1), include.drift=TRUE)
+fit_arima_2_1_1 = Arima(gtemp, order = c(2,1,1), include.drift=TRUE)
+fit_arima_3_1_1 = Arima(gtemp, order = c(3,1,1), include.drift=TRUE)
+fit_arima_0_0_1 = Arima(gtemp, order = c(1,0,0), include.drift=TRUE)
+
+plot( resid(fit_arima_0_1_1), lwd=3, main="resid(fit_arima_0_1_1)")
+par(mfrow=c(2,1))
+acf(resid(fit_arima_0_1_1), lwd = 3, main="ACF of resid(fit_arima_0_1_1)")
+pacf(resid(fit_arima_0_1_1), lwd = 3, main="PACF of resid(fit_arima_0_1_1)")
+
+par(mfrow=c(1,2))
+qqnorm(resid(fit_arima_0_1_1), main="QQplot:: resid(fit_arima_0_1_1)", lwd=3)
+qqline(resid(fit_arima_0_1_1), lwd=3, col="red")
+
+par(mfrow=c(1,1))
+plot(forecast(fit_arima_0_1_1, h = 30), lwd=3)
+```
+
+
+\section{SARIMA}
+
+```{r}
+par(mfrow=c(1,1))
+plot(birth, lwd=3, main="Monthly live births in thousands for the United States")
+
+d12.birth = diff(birth, lag=12)
+plot(d12.birth, lwd=3, main="Diff(birth, lag=12)")
+d.d12.birth = diff(d12.birth, lag=1)
+plot(d.d12.birth, lwd=3, main="Diff(Diff(birth, lag=12))")
+
+par(mfrow=c(1,2))
+acf(d.d12.birth, lwd=3, main="ACF diff(diff(birth,12))", ylim=c(-1,1), lag.max = 12*5)
+pacf(d.d12.birth, lwd=3, main="ACF diff(diff(birth,12))", ylim=c(-1,1), lag.max = 12*5)
+```
+
+
+Let us try to fit an SARIMA to the borth dataset.
+```{r}
+par(mfrow=c(1,1))
+plot(birth, lwd=3, main="Monthly live births in thousands for the United States")
+
+#let us  explore some model
+# we will restrict models to: p<=4, q<=4, P<=1, Q<=1
+AIC_best = 10**6
+for(p in 0:4){
+  for(q in 0:4){
+    for(P in c(0,1)){
+      for(Q in c(0,1)){
+        fit_sarima = Arima(birth, order = c(p,1,q), seasonal = c(P,1,Q))
+        aic = fit_sarima$aic
+        if(aic < AIC_best){
+          AIC_best = aic
+          cat("p=",p,"q=",q,"P=",P,"Q=",Q,"\t AIC=",fit_sarima$aic, 
+                "\t Number of parameters=",p+q+P+Q,"\n")
+        }
+      }
+    }
+  }
+}
+
+#let us try an SARIMA(4,1,0)(0,1,1)[12]
+sarima_fit =  Arima(birth, order = c(4,1,0), seasonal = c(0,1,1))
+
+tsdisplay(resid(sarima_fit), lwd=3, main="residual: SARIMA(4,1,0)(0,1,1)[12]" )
+
+qqnorm(resid(sarima_fit), main="SARIMA(4,1,0)(0,1,1)[12]")
+qqline(resid(sarima_fit), col="red", lwd=3)
+
+plot(forecast(sarima_fit, h=50), main="forecast:: SARIMA(4,1,0)(0,1,1)[12]", lwd=3)
+```
+
+# Cross-Validation for time series
+
+Let us do some cross-validation to choose an appropriate model for predicting the oil dataset.
+
+```{r}
+log_oil = log(oil)
+plot(log_oil, main="Log(oil", lwd=3)
+
+
+#First, let us define a function that does cross-validation for a given model
+library(fpp)
+cross_validation = function(time_series, start, forecast_length, ts_model){
+  # INPUT :
+  # ======
+  # time_series: a time series
+  # start: minimum amount of data used for fitting a model
+  # forecast_length: number of forecast in the future
+  # ts_model: a function that takes a time_series as input and output a fitted model
+  # OUTPUT :
+  # =======
+  # a list of RMSE
+  # REMARK: this function depends on the library "fpp"
+  ts_length = length(time_series)
+  accuracy_list = c()
+  for(k in c(start:(ts_length - forecast_length))){
+    #fit the model on data from 0 to "k"
+    fitted_model = ts_model(time_series[0:k])
+    #extract Root Mean Square Error of prediction on the next "h" values
+    RMSE = accuracy(forecast(fitted_model, h = forecast_length))[2]
+    accuracy_list = c(accuracy_list, RMSE)
+  }
+  return( accuracy_list )
+}
+
+
+#define some model to test
+ts_model_0_1_0 = function(ts) return( Arima(ts, order = c(0,1,0), include.drift = F) )
+ts_model_1_1_0 = function(ts) return( Arima(ts, order = c(1,1,0), include.drift = F) )
+ts_model_2_1_0 = function(ts) return( Arima(ts, order = c(2,1,0), include.drift = F) )
+ts_model_3_1_0 = function(ts) return( Arima(ts, order = c(3,1,0), include.drift = F) )
+ts_model_0_1_1 = function(ts) return( Arima(ts, order = c(0,1,1), include.drift = F) )
+ts_model_1_1_1 = function(ts) return( Arima(ts, order = c(1,1,1), include.drift = F) )
+ts_model_2_1_1 = function(ts) return( Arima(ts, order = c(2,1,1), include.drift = F) )
+ts_model_3_1_1 = function(ts) return( Arima(ts, order = c(3,1,1), include.drift = F) )
+
+#do cross-validation on this models to compare them
+start = 300
+forecast_length = 27  #6 months forecast
+CV_results = data.frame(
+  arima_0_1_0 = cross_validation(log_oil, start, forecast_length, ts_model_0_1_0),
+  arima_1_1_0 = cross_validation(log_oil, start, forecast_length, ts_model_1_1_0),
+  arima_2_1_0 = cross_validation(log_oil, start, forecast_length, ts_model_2_1_0),
+  arima_3_1_0 = cross_validation(log_oil, start, forecast_length, ts_model_3_1_0),
+  arima_0_1_1 = cross_validation(log_oil, start, forecast_length, ts_model_0_1_1),
+  arima_1_1_1 = cross_validation(log_oil, start, forecast_length, ts_model_1_1_1),
+  arima_2_1_1 = cross_validation(log_oil, start, forecast_length, ts_model_2_1_1),
+  arima_3_1_1 = cross_validation(log_oil, start, forecast_length, ts_model_3_1_1)
+)
+
+#plot the results
+boxplot(CV_results,las = 2, cex.axis = 0.9,
+        main = "Oil Data:: Cross Validation for RMSE", lwd=2)
+```
+
